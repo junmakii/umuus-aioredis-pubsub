@@ -157,6 +157,59 @@ With websockets
 
 ----
 
+With flask-socketio
+-------------------
+
+    @attr.s()
+    class WebSocketServer(object):
+        name = attr.ib(__name__)
+        options = attr.ib({}, converter=lambda _: addict.Dict(
+            _,
+            redis={"host": "redis", "port": "6379", "password": "XXXX"},
+            server={"host": "0.0.0.0", "port": "8013"}
+        ))
+        channels = attr.ib([__name__])
+
+        def loop(self):
+            redis_instance = redis.Redis(**self.options.redis)
+            redis_pubsub = redis_instance.pubsub()
+            redis_pubsub.subscribe(self.channels)
+            for item in redis_pubsub.listen():
+                try:
+                    if isinstance(item['data'], bytes):
+                        data = json.loads(item['data'].decode(sys.getdefaultencoding()))
+                        socketio.send(json.dumps(data))
+                        # socketio.emit('ping event', {'message': json.dumps(data)}, namespace='/')
+                except Exception as err:
+                    print(err)
+                # socketio.sleep(1)
+
+        def run(self):
+            socketio.start_background_task(target=self.loop)
+            socketio.run(
+                app,
+                use_reloader=False,
+                debug=True,
+                **self.options.server,
+            )
+
+    def authenticate(token=None, **kwargs):
+        print('authenticate', token)
+        print('RETURN', (None if token == 'XXX' else False))
+        return (None if token == 'XXX' else False)
+
+    @socketio.on('connect')
+    def connect_handler():
+        print('connect_handler', flask.request.args)
+        is_authorized = authenticate(**{
+            key: (value[0] if isinstance(value, list) else value)
+            for key, value in flask.request.args.items()
+        })
+        return is_authorized
+
+
+----
+
 Authors
 -------
 
