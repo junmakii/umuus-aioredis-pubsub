@@ -105,6 +105,77 @@ With Custom Pattern
 
 ----
 
+Browser
+-------
+
+    const websocket = new WebSocket('ws://0.0.0.0:8000');
+    websocket.onmessage = (message) => console.log(message.data)
+
+
+----
+
+With Other Coroutines
+---------------------
+
+    asyncio.get_event_loop().run_until_complete(
+        asyncio.gather(
+            *([
+                websockets.serve(self.server, '0.0.0.0', 8000)
+            ] + umuus_aioredis_pubsub.instance.get_coroutines())
+        ))
+    asyncio.get_event_loop().run_forever()
+
+----
+
+With websockets
+---------------
+
+    import asyncio
+    import websockets
+    import attr
+    import umuus_aioredis_pubsub
+
+
+    @umuus_aioredis_pubsub.instance.subscribe()
+    async def my_task(name):
+        message = 'Hello, %s.' % name
+        await WebSocket.queue.put(message)
+        return dict(message=message)
+
+
+    @attr.s()
+    class WebSocket(object):
+        queue = asyncio.Queue()
+        connections = set()
+
+        async def on_message(self):
+            while True:
+                if not self.queue.empty():
+                    message = await self.queue.get()
+                    for connection in self.connections:
+                        res = await connection.send(message)
+                await asyncio.sleep(0.1)
+
+        async def server(self, websocket, path):
+            self.connections.add(websocket)
+            while True:
+                await asyncio.sleep(0.1)
+
+        def run(self):
+            asyncio.get_event_loop().run_until_complete(
+                asyncio.gather(
+                    *([
+                        websockets.serve(self.server, '0.0.0.0', 8012),
+                        self.on_message(),
+                    ] + umuus_aioredis_pubsub.instance.get_coroutines())
+                ))
+            asyncio.get_event_loop().run_forever()
+
+    if __name__ == '__main__':
+        WebSocket().run()
+
+----
+
 Authors
 -------
 
@@ -327,15 +398,14 @@ class AsyncRedisPubSub(object):
         self.loop = asyncio.get_event_loop()
         try:
             self.loop.run_until_complete(
-                asyncio.gather(*(
-                    [self.connect()] + [_ for _ in self.get_coroutines()])))
+                asyncio.gather(*([_ for _ in self.get_coroutines()])))
         except KeyboardInterrupt:
             pass
         finally:
             self.loop.close()
 
     def get_coroutines(self):
-        return [_.get_coroutine() for _ in self.coroutines]
+        return [self.connect()] + [_.get_coroutine() for _ in self.coroutines]
 
 
 instance = AsyncRedisPubSub(
