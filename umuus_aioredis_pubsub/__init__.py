@@ -88,6 +88,23 @@ Dispatching
     await umuus_aioredis_pubsub.instance.dispatch('example:my_task', name='James')  # Send a messagee into Redis store by a string.
 
 
+----
+
+With Custom Pattern
+-------------------
+
+    import umuus_aioredis_pubsub
+
+    @umuus_aioredis_pubsub.instance.subscribe(pattern='MY_TASK')
+    def my_task(name):
+        ...
+
+----
+
+    $ redis-cli -u "redis://root:XXXX@redis:6379/0" PUBLISH MY_TASK '{"name": "James"}'
+
+----
+
 Authors
 -------
 
