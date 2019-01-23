@@ -1,0 +1,8 @@
+
+exclude *.txt
+exclude MANIFEST.in
+include README.rst
+include requirements.txt
+recursive-include * *
+global-exclude __pycache__
+global-exclude *.py[co]
